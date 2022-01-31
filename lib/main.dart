@@ -10,7 +10,6 @@ void main() {
 class MyApp extends StatelessWidget {
   const MyApp({Key? key}) : super(key: key);
 
-  // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -37,13 +36,19 @@ class _MyHomePageState extends State<MyHomePage> {
   DateTime _focusedDay = DateTime.utc(
       DateTime.now().year, DateTime.now().month, DateTime.now().day);
   List<DateTime> _comprou = [];
+  List<DateTime> _ncomprou = [];
+  CalendarFormat _format = CalendarFormat.month;
   Future<bool> _getPrefsData() async {
     SharedPreferences _prefs = await SharedPreferences.getInstance();
 
     List<String> _listaDiasCompra =
         _prefs.getStringList('listaDiasCompra') ?? [];
+    List<String> _listaDiasNCompra =
+        _prefs.getStringList('listaDiasNCompra') ?? [];
     _comprou =
         _listaDiasCompra.map((String dia) => DateTime.parse(dia)).toList();
+    _ncomprou =
+        _listaDiasNCompra.map((String dia) => DateTime.parse(dia)).toList();
     return true;
   }
 
@@ -55,12 +60,19 @@ class _MyHomePageState extends State<MyHomePage> {
         _comprou.map((DateTime dia) {
           return dia.toString();
         }).toList());
+    _prefs.setStringList(
+        'listaDiasNCompra',
+        _ncomprou.map((DateTime dia) {
+          return dia.toString();
+        }).toList());
   }
 
   _getEvent(day) {
     final events = <String>[];
     if (_comprou.contains(day)) {
       events.add('Comprou');
+    } else if (_ncomprou.contains(day)) {
+      events.add('Não Comprou');
     }
 
     return events;
@@ -79,21 +91,52 @@ class _MyHomePageState extends State<MyHomePage> {
                   ),
                   body: Center(
                     child: TableCalendar(
-                      locale: 'pt_BR',
                       availableCalendarFormats: const {
                         CalendarFormat.month: 'Mês',
                         CalendarFormat.week: 'Semana',
                         CalendarFormat.twoWeeks: 'Duas semanas',
                       },
+                      onFormatChanged: (format) {
+                        setState(() {
+                          _format = format;
+                        });
+                      },
+                      calendarFormat: _format,
+                      calendarBuilders: CalendarBuilders(
+                        markerBuilder: (context, day, events) {
+                          if (events.contains('Comprou')) {
+                            return Container(
+                              child: const Text(
+                                'events.first',
+                                style: TextStyle(
+                                    color: Color.fromARGB(1, 1, 1, 0)),
+                              ),
+                              decoration: const BoxDecoration(
+                                color: Colors.green,
+                                shape: BoxShape.circle,
+                              ),
+                            );
+                          } else if (events.contains('Não Comprou')) {
+                            return Container(
+                              child: const Text(
+                                'events.first',
+                                style: TextStyle(
+                                    color: Color.fromARGB(1, 1, 1, 0)),
+                              ),
+                              decoration: const BoxDecoration(
+                                color: Colors.red,
+                                shape: BoxShape.circle,
+                              ),
+                            );
+                          }
+                        },
+                      ),
+                      locale: 'pt_BR',
                       calendarStyle: CalendarStyle(
-                        canMarkersOverflow: false,
                         markerDecoration: BoxDecoration(
                           color: Colors.green,
                           borderRadius: BorderRadius.circular(16),
                         ),
-                        // selectedColor: Colors.deepOrange[400],
-                        // todayColor: Colors.deepOrange[200],
-                        // markersColor: Colors.brown[700],
                         outsideDaysVisible: false,
                       ),
                       firstDay: DateTime.utc(2022, 01, 01),
@@ -108,27 +151,24 @@ class _MyHomePageState extends State<MyHomePage> {
                       onDaySelected: (selectedDay, focusedDay) {
                         setState(() {
                           _selectedDay = selectedDay;
-                          _focusedDay =
-                              focusedDay; // update `_focusedDay` here as well
+                          _focusedDay = focusedDay;
                         });
                       },
                     ),
                   ),
-                  /*
-          carinha feliz
-          coração
-          
-          
-           */
                   floatingActionButtonLocation:
                       FloatingActionButtonLocation.centerFloat,
                   floatingActionButton: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       FloatingActionButton(
                         onPressed: () async {
                           setState(() {
-                            _comprou.add(_focusedDay);
+                            if (!_comprou.contains(_focusedDay)) {
+                              _comprou.add(_focusedDay);
+                            }
+                            _ncomprou.remove(_focusedDay);
                           });
                           await _setPrefsData();
                         },
@@ -138,11 +178,29 @@ class _MyHomePageState extends State<MyHomePage> {
                         ),
                         backgroundColor: Colors.green,
                       ),
-                      const SizedBox(width: 50),
+                      const SizedBox(width: 50, height: 100),
                       FloatingActionButton(
                         onPressed: () async {
                           setState(() {
                             _comprou.remove(_focusedDay);
+                            _ncomprou.remove(_focusedDay);
+                          });
+                          await _setPrefsData();
+                        },
+                        backgroundColor: Colors.blue,
+                        tooltip: 'Limpar dia',
+                        child: const Icon(
+                          Icons.clear,
+                        ),
+                      ),
+                      const SizedBox(width: 50, height: 100),
+                      FloatingActionButton(
+                        onPressed: () async {
+                          setState(() {
+                            _comprou.remove(_focusedDay);
+                            if (!_ncomprou.contains(_focusedDay)) {
+                              _ncomprou.add(_focusedDay);
+                            }
                           });
                           await _setPrefsData();
                         },
